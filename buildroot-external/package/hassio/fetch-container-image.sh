@@ -11,6 +11,22 @@ image_json_name=$4
 dl_dir=$5
 dst_dir=$6
 
+skopeo_arch="${arch}"
+case "${arch}" in
+    "aarch64")
+        skopeo_arch="arm64"
+        ;;
+    "armv7"|"armhf")
+        skopeo_arch="arm"
+        ;;
+    "x86_64")
+        skopeo_arch="amd64"
+        ;;
+    "i386")
+        skopeo_arch="386"
+        ;;
+esac
+
 retry() {
 	local retries="$1"
 	local cmd=$2
@@ -39,8 +55,7 @@ image_tag=$(jq -e -r --arg image_json_name "${image_json_name}" \
 	'.[$image_json_name]' < "${version_json}")
 full_image_name="${image_name}:${image_tag}"
 
-image_digest=$(retry 3 "skopeo inspect 'docker://${full_image_name}' | jq -r '.Digest'")
-
+image_digest=$(retry 3 "skopeo inspect --override-arch \"${skopeo_arch}\" 'docker://${full_image_name}' | jq -r '.Digest'")
 # Cleanup image name file name use
 image_file_name="${full_image_name//[:\/]/_}@${image_digest//[:\/]/_}"
 image_file_path="${dl_dir}/${image_file_name}.tar"
@@ -52,7 +67,7 @@ dst_image_file_path="${dst_dir}/${image_file_name}.tar"
 	if [ ! -f "${image_file_path}" ]
 	then
 		echo "Fetching image: ${full_image_name} (digest ${image_digest})"
-		retry 3 "skopeo copy 'docker://${image_name}@${image_digest}' 'docker-archive:${image_file_path}:${full_image_name}'"
+		retry 3 "skopeo copy --override-arch \"${skopeo_arch}\" 'docker://${image_name}@${image_digest}' 'docker-archive:${image_file_path}:${full_image_name}'"
 	else
 		echo "Skipping download of existing image: ${full_image_name} (digest ${image_digest})"
 	fi

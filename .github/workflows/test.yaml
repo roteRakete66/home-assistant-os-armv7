@@ -1,3 +1,4 @@
+---
 name: Test HAOS image
 run-name: "Test HAOS ${{ inputs.version || format('(OS build #{0})', github.event.workflow_run.run_number) }}"
 

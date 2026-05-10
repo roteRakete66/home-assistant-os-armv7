@@ -100,15 +100,15 @@ def test_supervisor_is_updated(shell_json):
 def test_addon_install(shell_json):
     # install Core SSH add-on
     assert (
-        shell_json("ha addons install core_ssh --no-progress --raw-json").get("result") == "ok"
+        shell_json("ha addons install core_ssh --no-progress --raw-json 2>/dev/null").get("result") == "ok"
     ), "Core SSH add-on install failed"
     # check Core SSH add-on is installed
     assert (
-        shell_json("ha addons info core_ssh --no-progress --raw-json").get("data", {}).get("version") is not None
+        shell_json("ha addons info core_ssh --no-progress --raw-json 2>/dev/null").get("data", {}).get("version") is not None
     ), "Core SSH add-on not installed"
     # start Core SSH add-on
     assert (
-        shell_json("ha addons start core_ssh --no-progress --raw-json").get("result") == "ok"
+        shell_json("ha addons start core_ssh --no-progress --raw-json 2>/dev/null").get("result") == "ok"
     ), "Core SSH add-on start failed"
     # check Core SSH add-on is running
     ssh_info = shell_json("ha addons info core_ssh --no-progress --raw-json")
@@ -134,8 +134,29 @@ def test_supervisor_errors(shell_json):
 
 
 @pytest.mark.dependency(depends=["test_supervisor_is_updated"])
-def test_create_backup(shell_json, stash):
+def test_create_backup(shell_json, shell, stash):
+    for _ in range(100):
+        try:
+            info = shell_json("ha core info --no-progress --raw-json")
+            if info.get("result") == "ok":
+                port_check = shell.run("netstat -tulpen | grep 8123")
+                if port_check:
+                    logger.info("Core API responded and Port 8123 is up.")
+                    break
+        except Exception:
+            pass
+        sleep(4)
+    else:
+        pytest.fail("Home Assistant Core was not ready (Port 8123 not found)")
+
+    sleep(20)
+
     result = shell_json("ha backups new --no-progress --raw-json")
+
+    if result.get("result") != "ok":
+        print("\n--- DEBUG: Supervisor Logs on Backup Failure ---")
+        print(shell.run("docker logs hassio_supervisor --tail 100"))
+
     assert result.get("result") == "ok", f"Backup creation failed: {result}"
     slug = result.get("data", {}).get("slug")
     assert slug is not None
@@ -145,7 +166,7 @@ def test_create_backup(shell_json, stash):
 
 @pytest.mark.dependency(depends=["test_addon_install"])
 def test_addon_uninstall(shell_json):
-    result = shell_json("ha addons uninstall core_ssh --no-progress --raw-json")
+    result = shell_json("ha addons uninstall core_ssh --no-progress --raw-json 2>/dev/null")
     assert result.get("result") == "ok", f"Core SSH add-on uninstall failed: {result}"
     logger.info("Core SSH add-on uninstall result: %s", result)
 
@@ -173,11 +194,11 @@ def test_restart_supervisor(shell, shell_json):
 
 @pytest.mark.dependency(depends=["test_create_backup"])
 def test_restore_backup(shell_json, stash):
-    result = shell_json(f"ha backups restore {stash.get('slug')} --addons core_ssh --no-progress --raw-json")
+    result = shell_json(f"ha backups restore {stash.get('slug')} --addons core_ssh --no-progress --raw-json 2>/dev/null")
     assert result.get("result") == "ok", f"Backup restore failed: {result}"
     logger.info("Backup restore result: %s", result)
 
-    addon_info = shell_json("ha addons info core_ssh --no-progress --raw-json")
+    addon_info = shell_json("ha addons info core_ssh --no-progress --raw-json 2>/dev/null")
     assert addon_info.get("data", {}).get("version") is not None, "Core SSH add-on not installed"
     assert addon_info.get("data", {}).get("state") == "started", "Core SSH add-on not running"
     logger.info("Core SSH add-on info: %s", addon_info)

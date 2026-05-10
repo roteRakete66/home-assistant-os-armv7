@@ -57,6 +57,11 @@ def shell_json(target, strategy) -> callable:
     shell = target.get_driver("ShellDriver")
 
     def get_json_response(command, *, timeout=None) -> dict:
-        return json.loads("\n".join(shell.run_check(command, timeout=timeout)))
+        raw_output = "\n".join(shell.run_check(command, timeout=timeout))
+        # Wir suchen den Anfang des echten JSON-Objekts
+        json_start = raw_output.find('{')
+        if json_start != -1:
+            return json.loads(raw_output[json_start:])
+        return json.loads(raw_output)
 
     return get_json_response

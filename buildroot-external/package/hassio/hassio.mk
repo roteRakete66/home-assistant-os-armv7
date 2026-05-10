@@ -21,8 +21,8 @@ endif
 HASSIO_CONTAINER_IMAGES_ARCH = supervisor dns audio cli multicast observer core
 
 define HASSIO_CONFIGURE_CMDS
-	# Deploy only landing page for "core" by setting version to "landingpage"
-	curl -s $(HASSIO_VERSION_URL)$(HASSIO_VERSION_CHANNEL)".json" | jq '.core = "landingpage"' > $(@D)/version.json
+	# Kopiere die lokale version.json statt sie herunterzuladen
+	cp $(HASSIO_SITE)/version.json $(@D)/version.json
 endef
 
 define HASSIO_BUILD_CMDS

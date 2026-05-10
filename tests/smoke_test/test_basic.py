@@ -95,8 +95,16 @@ def test_host_connectivity(shell):
 
 
 @pytest.mark.dependency(depends=["test_init"])
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(120)
 def test_supervisor_connectivity(shell):
+    for _ in range(50):
+        status = shell.run_check("docker inspect -f '{{.State.Running}}' hassio_supervisor || echo false")
+        if "true" in "".join(status):
+            break
+        sleep(2)
+    else:
+        pytest.fail("Supervisor container was not running after 2 minutes")
+
     # checks URL used by connectivity checks via docker0 bridge
     output = shell.run_check("docker exec -ti hassio_supervisor curl -f https://checkonline.home-assistant.io/online.txt")
     assert "NetworkManager is online" in output

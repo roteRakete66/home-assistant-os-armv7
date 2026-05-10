@@ -13,7 +13,7 @@ TEMPIO_LDFLAGS = -X main.version=$(TEMPIO_VERSION)
 
 define TEMPIO_GO_VENDORING
 	(cd $(@D); \
-		$(HOST_DIR)/bin/go mod vendor)
+		GOPROXY=https://proxy.golang.org,direct $(HOST_DIR)/bin/go mod vendor)
 endef
 
 TEMPIO_POST_PATCH_HOOKS += TEMPIO_GO_VENDORING
